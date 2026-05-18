@@ -66,6 +66,7 @@
 			:initial-template="selectedTemplate"
 			@close="closeNewFormModal"
 			@created="onFormCreated"
+			@ai-completed="loadForms"
 		/>
 
 		<NcDialog

@@ -236,7 +236,14 @@ class ResponseService
             'questions' => [],
         ];
 
-        foreach ($form['questions'] ?? [] as $question) {
+        // Sections are UI grouping containers, not questions — exclude them
+        // so they don't show up as empty "questions" in the results summary.
+        $questions = array_values(array_filter(
+            $form['questions'] ?? [],
+            fn($q) => ($q['type'] ?? '') !== 'section',
+        ));
+
+        foreach ($questions as $question) {
             $questionId = $question['id'];
             $questionSummary = [
                 'id' => $questionId,
@@ -295,11 +302,19 @@ class ResponseService
             return '';
         }
 
+        // Sections are UI grouping containers, not questions — exclude them
+        // from CSV columns so they don't appear as empty columns next to
+        // the actual answer columns.
+        $questions = array_values(array_filter(
+            $form['questions'] ?? [],
+            fn($q) => ($q['type'] ?? '') !== 'section',
+        ));
+
         $output = fopen('php://temp', 'r+');
 
         // Header row
         $headers = ['Response ID', 'Submitted At', 'Respondent Type', 'Respondent ID'];
-        foreach ($form['questions'] ?? [] as $question) {
+        foreach ($questions as $question) {
             $headers[] = $question['question'];
         }
         // eol: "\r\n" so the record separator matches Excel's CSV expectation
@@ -315,7 +330,7 @@ class ResponseService
                 $response['respondent']['user_id'] ?? $response['respondent']['fingerprint'] ?? '',
             ];
 
-            foreach ($form['questions'] ?? [] as $question) {
+            foreach ($questions as $question) {
                 $answer = $response['answers'][$question['id']] ?? '';
 
                 // Matrix questions: format as "Row: Column" pairs
@@ -404,8 +419,13 @@ class ResponseService
         $csv = stream_get_contents($output);
         fclose($output);
 
-        // Prepend UTF-8 BOM so Excel on Windows recognises the encoding
-        return "\xEF\xBB\xBF" . $csv;
+        // Prepend UTF-8 BOM so Excel on Windows recognises the encoding,
+        // and a `sep=,` directive so Excel honours the comma separator
+        // regardless of the user's locale — Dutch/German/French Excel
+        // defaults to `;` and would otherwise dump the whole row into a
+        // single cell. RFC 4180 parsers (Pandas, R, LibreOffice) ignore
+        // the directive as a non-data line. (#91)
+        return "\xEF\xBB\xBF" . "sep=,\r\n" . $csv;
     }
 
     /**
@@ -576,6 +596,16 @@ class ResponseService
      */
     private function isQuestionHidden(array $question, array $answers, array $questionsById): bool
     {
+        // Question is hidden if its parent section is hidden (#92). A
+        // required question inside a section whose showIf evaluates false
+        // must not be enforced — the respondent never saw the field.
+        if (!empty($question['sectionId']) && isset($questionsById[$question['sectionId']])) {
+            $section = $questionsById[$question['sectionId']];
+            if (isset($section['showIf']) && !$this->evaluateCondition($section['showIf'], $answers)) {
+                return true;
+            }
+        }
+
         if (!isset($question['showIf'])) {
             return false;
         }

@@ -267,7 +267,7 @@
               <tr>
                 <th>{{ t('Date') }}</th>
                 <th>{{ t('Respondent') }}</th>
-                <th v-for="question in form.questions" :key="question.id">
+                <th v-for="question in answerableQuestions" :key="question.id">
                   {{ truncate(question.question, 30) }}
                 </th>
                 <th></th>
@@ -282,7 +282,7 @@
                   </span>
                   <span v-else class="anonymous">{{ t('Anonymous') }}</span>
                 </td>
-                <td v-for="question in form.questions" :key="question.id">
+                <td v-for="question in answerableQuestions" :key="question.id">
                   <template v-if="isFileAnswer(response.answers[question.id])">
                     <div class="file-answer">
                       <a
@@ -459,6 +459,12 @@ export default {
       const start = (currentPage.value - 1) * pageSize.value;
       const end = start + pageSize.value;
       return responses.value.slice(start, end);
+    });
+
+    // Sections are UI grouping containers, not questions — skip them in the
+    // results table so they don't show up as empty columns.
+    const answerableQuestions = computed(() => {
+      return (props.form.questions || []).filter(q => q.type !== 'section');
     });
 
     const getChartType = (questionId) => {
@@ -777,6 +783,7 @@ export default {
       pageSize,
       totalPages,
       paginatedResponses,
+      answerableQuestions,
       // Methods
       getChartType,
       setChartType,

@@ -2,6 +2,17 @@
 
 All notable changes to FormVox will be documented in this file.
 
+## [1.2.2] - 2026-05-18
+
+### Fixed
+- **Required questions inside a hidden section blocked submission** — When a section had a `showIf` condition that evaluated false, the section (and the questions inside it) were not shown to the respondent — but the server still enforced `required: true` on those hidden questions, rejecting the submit with "Question 'X' is required". Server-side validation now treats any question whose parent section is hidden as hidden too, matching the frontend behaviour. ([#92](https://github.com/nextcloud/formvox/issues/92))
+- **CSV export opened as a single column in non-English Excel locales** — Dutch, German, French (etc.) Excel installations default to `;` as list separator and parsed our comma-separated CSV as one giant column per row. The export now prepends a `sep=,` directive so Excel honours the comma regardless of locale; RFC 4180 parsers (Pandas, R, LibreOffice) treat it as a non-data line. ([#91](https://github.com/nextcloud/formvox/issues/91))
+- **Sections appeared as empty columns/rows in results** — Sections are UI grouping containers, not questions, but the summary view, the responses table and the CSV export all looped over `form.questions` indiscriminately and emitted an empty column for each section. All three code paths now skip section items.
+- **AI form generation modal stayed open after completion** — Three combined regressions: the polling loop checked for status `4` while NC TaskProcessing returns `3` for "successful", `showSuccess` was never imported, and the success branch tried to navigate to a non-existent fileId. The modal now closes correctly, shows the success toast, and emits a new `ai-completed` event that the parent uses to refresh the form list so the newly generated form appears on the homepage without a manual reload.
+
+### Changed
+- **Upgraded `sass-loader` to v16** (modern Dart Sass compiler API).
+
 ## [1.2.1] - 2026-05-12
 
 ### Changed

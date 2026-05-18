@@ -1,6 +1,6 @@
 {
   "name": "formvox",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "File-based forms and polls for Nextcloud",
   "scripts": {
     "build": "webpack",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "css-loader": "^6.8.1",
     "sass": "^1.69.0",
-    "sass-loader": "^13.3.0",
+    "sass-loader": "^16.0.8",
     "string-replace-loader": "^3.2.0",
     "style-loader": "^3.3.3",
     "webpack": "^5.89.0",

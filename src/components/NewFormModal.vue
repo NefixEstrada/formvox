@@ -85,7 +85,7 @@ import { ref, computed, onMounted } from 'vue';
 import { NcModal, NcButton, NcTextField, NcLoadingIcon } from '@nextcloud/vue';
 import { generateUrl } from '@nextcloud/router';
 import axios from '@nextcloud/axios';
-import { showError, getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs';
+import { showError, showSuccess, getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs';
 import { t } from '@/utils/l10n';
 import FolderIcon from './icons/FolderIcon.vue';
 import PaperclipIcon from 'vue-material-design-icons/Paperclip.vue';
@@ -124,7 +124,7 @@ export default {
 			default: 'blank',
 		},
 	},
-	emits: ['close', 'created'],
+	emits: ['close', 'created', 'ai-completed'],
 	setup(props, { emit }) {
 		const title = ref('')
 		const creating = ref(false)
@@ -294,18 +294,24 @@ export default {
         try {
           const tr = await axios.get(generateUrl('/apps/formvox/api/ai/task/' + taskId));
           const status = tr.data?.status;
-          // 1 = scheduled, 2 = running, 4 = successful, 5 = failed, 6 = cancelled
-          if (status === 4) {
+          // NC TaskProcessing status codes (lib/public/TaskProcessing/Task.php):
+          //   0=unknown, 1=scheduled, 2=running, 3=successful, 4=failed, 5=cancelled
+          if (status === 3) {
             // Wait for the listener to materialise the form (pendingRow=false).
             if (tr.data?.pendingRow === false) {
               clearInterval(interval);
               creating.value = false;
               try { sessionStorage.removeItem('formvox_ai_generating'); } catch (e) { /* ignore */ }
               window.dispatchEvent(new CustomEvent('formvox-ai-state-change'));
-              emit('created', { fileId: null }); // The notification + listener will have set everything up; close modal.
               showSuccess(t('AI form created. Check your notifications to open it.'));
+              // Tell the parent to refresh the form list so the new form
+              // shows up on the homepage. We don't emit 'created' with a
+              // null fileId, that would trigger openForm() which navigates
+              // to a broken URL — the notification carries the actual link.
+              emit('ai-completed');
+              emit('close');
             }
-          } else if (status === 5 || status === 6) {
+          } else if (status === 4 || status === 5) {
             clearInterval(interval);
             aiError.value = tr.data?.error || t('AI generation failed.');
             creating.value = false;
